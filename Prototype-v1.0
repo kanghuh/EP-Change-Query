@@ -1,0 +1,24 @@
+--Extracting metadata from JSON files in Genesis application. Created new, temporary table with data extracted from the JSON files. I want to isolate key applicant details - First/Last Name, UUID, Phone Number, DOB.
+with
+    application_data
+    as
+(
+    select USER_ID as UUID, parse_json(apps.data):base_questions as src
+    from GENESIS_PUBLIC.APPLICATIONS apps
+    where USER_ID in ('b07bba81-8364-4a45-bd61-e6710526b3f2','831c12be-dc54-4273-a3d6-112ee8b47d92')
+    and ACADEMIC_PARTNER_UUID = 'f677f57f-5070-4edd-942b-a5140b96e4d4'
+    and STATE = 'approved'
+)
+
+--Query to join AP student file and EP information. (The student with the UUIDs used above has already been merged, so the employer appears as the same.) 
+select distinct ap_file.FIRST_NAME, ap_file.LAST_NAME, a.UUID, a.src[2]:"value" as Phone_No1, a.src[4]:"value" as Phone_No2, ap_file.DOB, employer.NAME from application_data a
+join WAREHOUSE.STUDENTS ap_file
+    on ap_file.GUILD_UUID = a.UUID
+join SALESFORCE.CONTACT sfdc
+    on sfdc.GUILD_APP_UUID_C = ap_file.GUILD_UUID
+join EMPLOYMENT_SERVICE_PUBLIC.EMPLOYEE_RAW employee
+    on sfdc.EMPLOYEE_ID_C = employee.EMPLOYEE_ID
+join EMPLOYMENT_SERVICE_PUBLIC.EMPLOYER employer
+    on employee.EMPLOYER_ID = employer.ID
+where (src[2]:"key" = 'phone-v1'
+or src[4]:"key" = 'phone-v1');
